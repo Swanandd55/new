@@ -1,19 +1,61 @@
 ---
-services:
-  mysql:
-    image: mysql:5.5
-    volumes:
-      - mysql:/var/lib/mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: ec95c258266b8e985848cae688effa2b
-  app:
-    build: .
-    depends_on:
-      - mysql
-    ports:
-      - "8080:8080"
-    environment:
-      MYSQL_USER: root
-      MYSQL_PASSWORD: ec95c258266b8e985848cae688effa2b
-volumes:
-  mysql:
+---
+- hosts: all
+  become: true
+  vars:
+    container_count: 4
+    default_container_name: docker
+    default_container_image: ubuntu
+    default_container_command: sleep 1d
+
+  tasks:
+    - name: Install aptitude
+      apt:
+        name: aptitude
+        state: latest
+        update_cache: true
+
+    - name: Install required system packages
+      apt:
+        pkg:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - python3-pip
+          - virtualenv
+          - python3-setuptools
+        state: latest
+        update_cache: true
+
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Update apt and install docker-ce
+      apt:
+        name: docker-ce
+        state: latest
+        update_cache: true
+
+    - name: Install Docker Module for Python
+      pip:
+        name: docker
+
+    - name: Pull default Docker image
+      community.docker.docker_image:
+        name: "swanandd55/webapp:{{DOCKER_TAG}}"
+        source: pull
+    - name: Start the container
+      docker_container:
+        name: webapp
+        image: "swanandd55/webapp:{{DOCKER_TAG}}"
+        state: started
+        published_ports:
+          - 0.0.0.0:8080:8080
